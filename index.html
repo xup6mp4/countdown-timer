@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- PWA meta -->
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="倒數計時器" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <!-- 可選：若你有 180x180 PNG，取消註解並替換路徑 -->
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <title>倒數計時器 ⏳</title>
+  <style>
+    :root {
+      --bg: #0f172a;      /* slate-900 */
+      --panel: #111827;   /* gray-900 */
+      --muted: #94a3b8;   /* slate-400 */
+      --text: #e5e7eb;    /* gray-200 */
+      --accent: #22c55e;  /* green-500 */
+      --accent-2: #60a5fa;/* blue-400 */
+      --danger: #ef4444;  /* red-500 */
+      --warning: #f59e0b; /* amber-500 */
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 1200px at 80% -20%, #1f2937 0, var(--bg) 50%);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .card {
+      width: min(760px, 95vw);
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.45);
+      padding: 24px 24px 18px;
+      backdrop-filter: blur(6px);
+    }
+    .title {
+      display: flex; align-items: baseline; gap: 12px; margin: 0 0 6px;
+    }
+    .title h1 { font-size: 22px; letter-spacing: .3px; margin: 0; }
+    .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+
+    .display {
+      user-select: none;
+      font-variant-numeric: tabular-nums;
+      display: flex; align-items: center; justify-content: center;
+      font-size: clamp(48px, 8vw, 120px);
+      padding: 16px 8px; margin: 8px 0 12px;
+      letter-spacing: 2px;
+      border-radius: 16px; border: 1px dashed rgba(255,255,255,.15);
+      background: rgba(255,255,255,.02);
+    }
+    .display small { font-size: .33em; color: var(--muted); margin-left: 8px; }
+
+    .grid { display: grid; gap: 12px; grid-template-columns: repeat(6, 1fr); }
+    .row { display: contents; }
+    .field { grid-column: span 2; }
+    .field label { display: block; font-size: 12px; color: var(--muted); margin: 4px 0; }
+    .field input[type="number"] {
+      width: 100%; box-sizing: border-box;
+      background: #0b1220; color: var(--text);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 10px; padding: 12px 12px;
+      font-size: 16px; outline: none;
+    }
+    .field input[type="number"]:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(96,165,250,.15); }
+
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+    button {
+      appearance: none; border: 1px solid rgba(255,255,255,.15);
+      background: #0b1220; color: var(--text);
+      padding: 10px 14px; border-radius: 12px; font-size: 15px;
+      cursor: pointer; transition: transform .02s ease, background .2s ease, border-color .2s ease;
+    }
+    button:active { transform: translateY(1px); }
+    .primary { background: linear-gradient(180deg, var(--accent), #16a34a); border-color: rgba(0,0,0,.2); color: #041e0e; font-weight: 700; }
+    .outline { border-color: rgba(255,255,255,.25); }
+    .ghost { background: transparent; }
+    .warn { background: linear-gradient(180deg, var(--warning), #d97706); color: #2e1b00; border-color: rgba(0,0,0,.2); }
+    .danger { background: linear-gradient(180deg, var(--danger), #dc2626); color: #2b0000; border-color: rgba(0,0,0,.2); }
+
+    .kbd { border: 1px solid rgba(255,255,255,.25); border-bottom-width: 3px; padding: 2px 6px; border-radius: 6px; font-weight: 600; background: #0b1220; }
+
+    .footer { margin-top: 14px; color: var(--muted); font-size: 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .spacer { flex: 1; }
+
+    @media (max-width: 680px) {
+      .field { grid-column: span 3; }
+    }
+  </style>
+</head>
+<body>
+  <main class="card" role="application" aria-label="倒數計時器">
+    <div class="title">
+      <h1>倒數計時器</h1>
+      <span class="subtitle">支援即時加時、鍵盤快捷鍵與音效提示</span>
+    </div>
+
+    <div id="screen" class="display" aria-live="polite" aria-atomic="true">00:00<small id="ms">.0</small></div>
+
+    <section class="grid" aria-label="設定">
+      <div class="row">
+        <div class="field">
+          <label for="min">起始分鐘</label>
+          <input id="min" type="number" inputmode="numeric" min="0" value="5" />
+        </div>
+        <div class="field">
+          <label for="sec">起始秒數</label>
+          <input id="sec" type="number" inputmode="numeric" min="0" max="59" value="0" />
+        </div>
+        <div class="field">
+          <label for="inc">每次加時（秒）</label>
+          <input id="inc" type="number" inputmode="numeric" min="1" value="60" />
+        </div>
+      </div>
+    </section>
+
+    <div class="actions" aria-label="操作">
+      <button id="startPause" class="primary" aria-pressed="false">開始</button>
+      <button id="reset" class="outline">重設</button>
+      <button id="add" class="warn" title="在倒數時加上設定秒數（或按鍵盤 +）">+ 加時</button>
+      <button id="quick1m" class="ghost" title="快速加 1 分鐘">+1 分鐘</button>
+      <button id="quick30s" class="ghost" title="快速加 30 秒">+30 秒</button>
+    </div>
+
+    <div class="footer">
+      <div>快捷鍵：<span class="kbd">Space</span> 開始/暫停、<span class="kbd">+</span> 加時、<span class="kbd">R</span> 重設</div>
+      <div class="spacer"></div>
+      <div id="status">待命中</div>
+    </div>
+  </main>
+
+  <script>
+    // ---- 精準計時（修正 setInterval 漂移） -----------------------------------
+    const screen = document.getElementById('screen');
+    const msSmall = document.getElementById('ms');
+    const startPauseBtn = document.getElementById('startPause');
+    const resetBtn = document.getElementById('reset');
+    const addBtn = document.getElementById('add');
+    const quick1mBtn = document.getElementById('quick1m');
+    const quick30sBtn = document.getElementById('quick30s');
+    const statusEl = document.getElementById('status');
+
+    const minInput = document.getElementById('min');
+    const secInput = document.getElementById('sec');
+    const incInput = document.getElementById('inc');
+
+    let running = false;
+    let remainingMs = 0;       // 剩餘毫秒
+    let targetTs = 0;          // 目標時間戳（以 performance.now() 基準）
+    let rafId = null;          // 使用 requestAnimationFrame 更新畫面
+    let tickId = null;         // 使用 setTimeout 作 100ms 節流更新
+
+    // 將使用者的加時偏好保存
+    const LS_KEY = 'countdown_inc_seconds_v1';
+    const savedInc = Number(localStorage.getItem(LS_KEY));
+    if (!Number.isNaN(savedInc) && savedInc > 0) incInput.value = savedInc;
+
+    function clamp(n, min, max) { return Math.min(Math.max(n, min), max); }
+
+    function fmt(ms) {
+      ms = Math.max(0, Math.floor(ms));
+      const totalSec = Math.floor(ms / 1000);
+      const m = Math.floor(totalSec / 60);
+      const s = totalSec % 60;
+      const ds = Math.floor((ms % 1000) / 100); // 十分之一秒
+      return { m, s, ds };
+    }
+
+    function render(ms) {
+      const { m, s, ds } = fmt(ms);
+      screen.firstChild && screen.removeChild(screen.firstChild);
+      const txt = document.createTextNode(`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`);
+      screen.insertBefore(txt, msSmall);
+      msSmall.textContent = `.${ds}`;
+      document.title = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} ⏳`;
+    }
+
+    function readInitialMs() {
+      const m = clamp(Number(minInput.value) || 0, 0, 24*60);
+      const s = clamp(Number(secInput.value) || 0, 0, 59);
+      return (m * 60 + s) * 1000;
+    }
+
+    function start() {
+      if (running) return;
+      // 若尚未設定或已歸零，從輸入值讀取
+      if (remainingMs <= 0) remainingMs = readInitialMs();
+      if (remainingMs <= 0) { statusMsg('請先設定起始時間'); return; }
+      running = true;
+      targetTs = performance.now() + remainingMs;
+      startPauseBtn.textContent = '暫停';
+      startPauseBtn.setAttribute('aria-pressed', 'true');
+      statusMsg('倒數中…');
+      scheduleTick();
+      loop();
+    }
+
+    function pause() {
+      if (!running) return;
+      running = false;
+      remainingMs = Math.max(0, targetTs - performance.now());
+      startPauseBtn.textContent = '開始';
+      startPauseBtn.setAttribute('aria-pressed', 'false');
+      statusMsg('已暫停');
+      cancelLoop();
+    }
+
+    function reset() {
+      running = false;
+      remainingMs = readInitialMs();
+      startPauseBtn.textContent = '開始';
+      startPauseBtn.setAttribute('aria-pressed', 'false');
+      statusMsg('已重設');
+      render(remainingMs);
+      cancelLoop();
+    }
+
+    function addSeconds(sec) {
+      if (sec <= 0) return;
+      // 保存使用者設定
+      if (sec === Number(incInput.value)) {
+        localStorage.setItem(LS_KEY, String(sec));
+      }
+      if (!running) {
+        remainingMs = Math.max(0, (remainingMs || readInitialMs())) + sec * 1000;
+        render(remainingMs);
+        statusMsg(`未啟動狀態已加時 +${sec}s`);
+        return;
+      }
+      // 進行中的情況 -> 直接延後目標時間
+      targetTs += sec * 1000;
+      statusMsg(`已加時 +${sec}s`);
+    }
+
+    function scheduleTick() {
+      if (tickId) clearTimeout(tickId);
+      const tick = () => {
+        const now = performance.now();
+        const left = Math.max(0, targetTs - now);
+        render(left);
+        if (left <= 0) { finish(); return; }
+        tickId = setTimeout(tick, 100); // 10Hz 更新
+      };
+      tickId = setTimeout(tick, 0);
+    }
+
+    function loop() { // 額外用 rAF 提升視覺流暢度
+      const step = () => {
+        if (!running) return;
+        const left = Math.max(0, targetTs - performance.now());
+        if (left <= 0) { finish(); return; }
+        rafId = requestAnimationFrame(step);
+      };
+      rafId = requestAnimationFrame(step);
+    }
+
+    function cancelLoop() {
+      if (rafId) cancelAnimationFrame(rafId), rafId = null;
+      if (tickId) clearTimeout(tickId), tickId = null;
+    }
+
+    function finish() {
+      running = false;
+      startPauseBtn.textContent = '開始';
+      startPauseBtn.setAttribute('aria-pressed', 'false');
+      render(0);
+      statusMsg('時間到！');
+      beep();
+      notify();
+      cancelLoop();
+    }
+
+    function statusMsg(msg) { statusEl.textContent = msg; }
+
+    // ---- 無資源依賴的提示音（WebAudio 產生短鳴聲） -------------------------
+    function beep() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.value = 880; // A5
+        g.gain.setValueAtTime(0.001, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+        o.connect(g).connect(ctx.destination);
+        o.start();
+        o.stop(ctx.currentTime + 0.4);
+      } catch {}
+    }
+
+    // ---- 桌面通知（需要使用者授權） ---------------------------------------
+    function notify() {
+      if (!('Notification' in window)) return;
+      if (Notification.permission === 'granted') {
+        new Notification('時間到 ⏳', { body: '倒數計時結束', silent: false });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission();
+      }
+    }
+
+    // ---- 事件繫結 ----------------------------------------------------------
+    startPauseBtn.addEventListener('click', () => running ? pause() : start());
+    resetBtn.addEventListener('click', reset);
+    addBtn.addEventListener('click', () => addSeconds(Number(incInput.value || 0)));
+    quick1mBtn.addEventListener('click', () => addSeconds(60));
+    quick30sBtn.addEventListener('click', () => addSeconds(30));
+
+    // 變更起始值時，若未在執行就同步到畫面
+    [minInput, secInput].forEach(el => el.addEventListener('change', () => { if (!running) { remainingMs = readInitialMs(); render(remainingMs); }}));
+
+    // 鍵盤快捷鍵
+    window.addEventListener('keydown', (e) => {
+      if (e.key === ' ') { e.preventDefault(); running ? pause() : start(); }
+      else if (e.key === '+' || e.key === '=') { addSeconds(Number(incInput.value || 0)); }
+      else if (e.key.toLowerCase() === 'r') { reset(); }
+    });
+
+    // 初始渲染
+    remainingMs = readInitialMs();
+    render(remainingMs);
+  </script>
+  <!-- PWA: Service Worker 註冊（需要 sw.js 同路徑放置） -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').then(reg => {
+          console.log('ServiceWorker registered', reg.scope);
+        }).catch(err => console.warn('ServiceWorker registration failed', err));
+      });
+    }
+  </script>
+
+  <!--
+  ===================== PWA 檔案指南 =====================
+  將以下兩個檔案放在與本 HTML 同一層目錄：
+  1) manifest.webmanifest
+  2) sw.js
+
+  --- manifest.webmanifest ---
+  {
+    "name": "倒數計時器",
+    "short_name": "倒數計時",
+    "start_url": "./",
+    "display": "standalone",
+    "background_color": "#0f172a",
+    "theme_color": "#0f172a",
+    "icons": [
+      { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+      { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    ]
+  }
+
+  --- sw.js (簡單的離線快取) ---
+  const CACHE_NAME = 'countdown-cache-v1';
+  const CORE_ASSETS = [
+    './',
+    './index.html',
+    './manifest.webmanifest'
+    // 若有圖示：'./icons/icon-192.png', './icons/icon-512.png'
+  ];
+
+  self.addEventListener('install', (event) => {
+    event.waitUntil(
+      caches.open(CACHE_NAME).then(cache => cache.addAll(CORE_ASSETS))
+    );
+    self.skipWaiting();
+  });
+
+  self.addEventListener('activate', (event) => {
+    event.waitUntil(
+      caches.keys().then(keys => Promise.all(
+        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+      ))
+    );
+    self.clients.claim();
+  });
+
+  self.addEventListener('fetch', (event) => {
+    const req = event.request;
+    // 對 HTML 採用 Network-first，其他採用 Cache-first
+    if (req.mode === 'navigate') {
+      event.respondWith(
+        fetch(req).then(r => {
+          const copy = r.clone();
+          caches.open(CACHE_NAME).then(c => c.put('./index.html', copy));
+          return r;
+        }).catch(() => caches.match('./index.html'))
+      );
+    } else {
+      event.respondWith(
+        caches.match(req).then(cached => cached || fetch(req).then(r => {
+          const copy = r.clone();
+          caches.open(CACHE_NAME).then(c => c.put(req, copy));
+          return r;
+        }))
+      );
+    }
+  });
+  ========================================================
+  -->
+</body>
+</html>
