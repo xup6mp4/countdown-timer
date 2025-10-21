@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+  <title>倒數計時器 ⏳（完整版）</title>
+
+  <!-- PWA / Icons (fixed links) -->
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="倒數計時器" />
+  <link rel="manifest" href="manifest.webmanifest?v=7" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=2" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=2" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=2" />
+
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --accent: #22c55e;
+      --accent-2: #60a5fa;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Helvetica Neue, Arial;
+      background: radial-gradient(1200px 1200px at 80% -20%, #1f2937 0, var(--bg) 50%);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start; /* 畫面往上對齊 */
+      padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+      min-height: 100dvh;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+      overflow-x: hidden;
+      -webkit-touch-callout: none;
+    }
+    .card {
+      width: min(700px, 100vw);
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.45);
+      padding: 24px 20px 18px;
+      backdrop-filter: blur(6px);
+      box-sizing: border-box;
+      transform: scale(0.9); /* 整體縮小 */
+      transform-origin: center top; /* 向上對齊 */
+    }
+
+    .title h1 { font-size: 22px; margin: 0; }
+    .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+
+    .display {
+      user-select: none;
+      display: flex; justify-content: center; align-items: center;
+      font-size: clamp(96px, 14vw, 144px); /* 放大字體 */
+      padding: calc(80px - 0.25cm) 0; /* 與加時按鈕同高度，略縮 0.5cm */
+      border-radius: 24px;
+      border: 2px solid rgba(255,255,255,.2);
+      background: rgba(255,255,255,.04);
+      margin: 8px 0 20px;
+    }
+    .display small { font-size: .33em; color: var(--muted); margin-left: 8px; }
+
+    .grid { display: grid; gap: 12px; grid-template-columns: repeat(6, 1fr); }
+    .field { grid-column: span 2; }
+    .field label { display: block; font-size: 12px; color: var(--muted); margin: 4px 0; }
+    .field input[type="number"] {
+      width: 100%; background: #0b1220; color: var(--text);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 10px; padding: 12px;
+      font-size: 16px; outline: none;
+    }
+
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+    button {
+      appearance: none; border: 1px solid rgba(255,255,255,.15);
+      background: #0b1220; color: var(--text);
+      padding: 10px 14px; border-radius: 12px; font-size: 15px;
+      cursor: pointer; transition: transform .02s ease, background .2s ease;
+    }
+    button:active { transform: translateY(1px); }
+
+    .primary { background: linear-gradient(180deg, var(--accent), #16a34a); border-color: rgba(0,0,0,.2); color: #041e0e; font-weight: 700; }
+    .outline { border-color: rgba(255,255,255,.25); }
+    .warn { background: linear-gradient(180deg, var(--warning), #d97706); color: #2e1b00; border-color: rgba(0,0,0,.2); }
+
+    #add {
+      flex: 1 1 100%;
+      width: 100%;
+      font-size: clamp(48px, 7vw, 72px); /* 大字體 */
+      padding: calc(80px - 0.25cm) 0; /* 與顯示框同高度，略縮 0.5cm */
+      border-radius: 24px;
+      box-shadow: 0 12px 40px rgba(245,158,11,.5);
+      font-weight: 900;
+      margin-top: 22px;
+      letter-spacing: 1px;
+    }
+    #add:active { transform: translateY(3px) scale(0.98); }
+
+    @media (max-width: 680px) {
+      #add { font-size: 48px; padding: calc(80px - 0.25cm) 0; }
+      .display { font-size: clamp(80px, 14vw, 144px); padding: calc(80px - 0.25cm) 0; }
+      .card { width: 100vw; border-radius: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="title">
+      <h1>倒數計時器</h1>
+      <span class="subtitle">支援即時加時與快捷鍵</span>
+    </div>
+
+    <div id="screen" class="display">00:00<small id="ms">.0</small></div>
+
+    <section class="grid">
+      <div class="field">
+        <label for="min">起始分鐘</label>
+        <input id="min" type="number" min="0" value="5" />
+      </div>
+      <div class="field">
+        <label for="sec">起始秒數</label>
+        <input id="sec" type="number" min="0" max="59" value="0" />
+      </div>
+      <div class="field">
+        <label for="inc">每次加時（秒）</label>
+        <input id="inc" type="number" min="1" value="60" />
+      </div>
+    </section>
+
+    <div class="actions">
+      <button id="startPause" class="primary">開始</button>
+      <button id="reset" class="outline">重設</button>
+      <button id="quick1m" class="outline">+1 分鐘</button>
+      <button id="quick30s" class="outline">+30 秒</button>
+    </div>
+
+    <button id="add" class="warn">+ 加時</button>
+  </main>
+
+  <script>
+    // 倒數計時器核心（維持原功能）
+    const screen = document.getElementById('screen');
+    const msSmall = document.getElementById('ms');
+    const startPauseBtn = document.getElementById('startPause');
+    const resetBtn = document.getElementById('reset');
+    const addBtn = document.getElementById('add');
+    const quick1mBtn = document.getElementById('quick1m');
+    const quick30sBtn = document.getElementById('quick30s');
+
+    const minInput = document.getElementById('min');
+    const secInput = document.getElementById('sec');
+    const incInput = document.getElementById('inc');
+
+    let running = false;
+    let remainingMs = 0;   // 剩餘毫秒
+    let targetTs = 0;      // 目標時間戳（performance.now 基準）
+    let rafId = null;
+    let tickId = null;
+
+    const LS_KEY = 'countdown_inc_seconds_v1';
+    const savedInc = Number(localStorage.getItem(LS_KEY));
+    if (!Number.isNaN(savedInc) && savedInc > 0) incInput.value = savedInc;
+
+    function fmt(ms){
+      ms = Math.max(0, Math.floor(ms));
+      const totalSec = Math.floor(ms/1000);
+      const m = Math.floor(totalSec/60);
+      const s = totalSec % 60;
+      const ds = Math.floor((ms % 1000)/100); // 十分之一秒
+      return {m,s,ds};
+    }
+
+    function render(ms){
+      const {m,s,ds} = fmt(ms);
+      if (screen.firstChild) screen.removeChild(screen.firstChild);
+      const txt = document.createTextNode(`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`);
+      screen.insertBefore(txt, msSmall);
+      msSmall.textContent = `.${ds}`;
+      document.title = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} ⏳`;
+    }
+
+    function readInitialMs(){
+      const m = Math.max(0, Number(minInput.value) || 0);
+      const s = Math.max(0, Number(secInput.value) || 0);
+      return (m*60 + s) * 1000;
+    }
+
+    function start(){
+      if (running) return;
+      if (remainingMs <= 0) remainingMs = readInitialMs();
+      if (remainingMs <= 0) { alert('請先設定起始時間'); return; }
+      running = true;
+      targetTs = performance.now() + remainingMs;
+      startPauseBtn.textContent = '暫停';
+      scheduleTick();
+      loop();
+    }
+
+    function pause(){
+      if (!running) return;
+      running = false;
+      remainingMs = Math.max(0, targetTs - performance.now());
+      startPauseBtn.textContent = '開始';
+      cancelLoop();
+    }
+
+    function reset(){
+      running = false;
+      remainingMs = readInitialMs();
+      startPauseBtn.textContent = '開始';
+      render(remainingMs);
+      cancelLoop();
+    }
+
+    function addSeconds(sec){
+      if (sec <= 0) return;
+      if (sec === Number(incInput.value)) localStorage.setItem(LS_KEY, String(sec));
+      if (!running){
+        remainingMs = Math.max(0, (remainingMs || readInitialMs())) + sec*1000;
+        render(remainingMs);
+        return;
+      }
+      targetTs += sec*1000; // 進行中延後截止點
+    }
+
+    function scheduleTick(){
+      if (tickId) clearTimeout(tickId);
+      const tick = () => {
+        const left = Math.max(0, targetTs - performance.now());
+        render(left);
+        if (left <= 0){ finish(); return; }
+        tickId = setTimeout(tick, 100); // 10Hz 更新
+      };
+      tickId = setTimeout(tick, 0);
+    }
+
+    function loop(){
+      const step = () => {
+        if (!running) return;
+        const left = Math.max(0, targetTs - performance.now());
+        if (left <= 0){ finish(); return; }
+        rafId = requestAnimationFrame(step);
+      };
+      rafId = requestAnimationFrame(step);
+    }
+
+    function cancelLoop(){
+      if (rafId) cancelAnimationFrame(rafId), rafId = null;
+      if (tickId) clearTimeout(tickId), tickId = null;
+    }
+
+    function beep(){
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = 880;
+        g.gain.setValueAtTime(0.001, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+        o.connect(g).connect(ctx.destination);
+        o.start(); o.stop(ctx.currentTime + 0.4);
+      } catch {}
+    }
+
+    function finish(){
+      running = false;
+      startPauseBtn.textContent = '開始';
+      render(0);
+      beep();
+      cancelLoop();
+    }
+
+    startPauseBtn.onclick = () => running ? pause() : start();
+    resetBtn.onclick = reset;
+    addBtn.onclick = () => addSeconds(Number(incInput.value || 0));
+    quick1mBtn.onclick = () => addSeconds(60);
+    quick30sBtn.onclick = () => addSeconds(30);
+    [minInput, secInput].forEach(el => el.onchange = () => { if (!running){ remainingMs = readInitialMs(); render(remainingMs); }});
+    window.onkeydown = e => {
+      if (e.key === ' '){ e.preventDefault(); running ? pause() : start(); }
+      else if (e.key === '+' || e.key === '='){ addSeconds(Number(incInput.value || 0)); }
+      else if (e.key.toLowerCase() === 'r'){ reset(); }
+    };
+
+    remainingMs = readInitialMs();
+    render(remainingMs);
+
+    // 註冊 Service Worker（若存在 sw.js）
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(()=>{});
+      });
+    }
+  </script>
+</body>
+</html>
