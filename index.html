@@ -5,6 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
   <title>倒數計時器 ⏳（花費時間）</title>
 
+  <!-- PWA 連結 -->
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png" sizes="180x180">
+  <link rel="apple-touch-icon" href="icons/icon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/icon-512.png" sizes="512x512">
+  <meta name="theme-color" content="#0f172a">
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js');
+      });
+    }
+  </script>
+
   <style>
     :root { --bg:#0f172a; --muted:#94a3b8; --text:#e5e7eb; --accent:#22c55e; --warning:#f59e0b; }
     html, body { height: 100%; }
@@ -50,7 +64,7 @@
     .field input[type="number"] { width:100%; background:#0b1220; color:var(--text); border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:12px; font-size:16px; outline:none; }
 
     .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
-    button { appearance:none; border:1px solid rgba(255,255,255,.15); background:#0b1220; color:var(--text); padding:10px 14px; border-radius:12px; font-size:15px; cursor:pointer; transition:transform .02s ease, background .2s ease; }
+    button { appearance:none; border:1px solid rgba(255,255,255,.15); background:#0b1220; color:#e5e7eb; padding:10px 14px; border-radius:12px; font-size:15px; cursor:pointer; transition:transform .02s ease, background .2s ease; }
     button:active { transform:translateY(1px); }
     .primary { background:linear-gradient(180deg, var(--accent), #16a34a); border-color:rgba(0,0,0,.2); color:#041e0e; font-weight:700; }
     .outline { border-color:rgba(255,255,255,.25); }
